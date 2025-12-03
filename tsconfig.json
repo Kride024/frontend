@@ -1,0 +1,35 @@
+// frontend/tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["apps/rentals/src/*"],
+      "@pg/*": ["apps/pg/src/*"],
+      "@rentalsshared/*": ["apps/rentals/src/shared/*"],
+      "@rentalsroutes/*": ["apps/rentals/src/routes/*"],
+      "@packages/*": ["packages/*"],
+      "@ui/*": ["apps/rentals/src/shared/ui/*"],
+      "@hooks/*": ["apps/rentals/src/hooks/*"],
+      "@rentalsservices/*": ["apps/rentals/src/app/shared/services/*"],
+      "@utils/*": ["apps/rentals/src/utils/*"],
+      "@store/*": ["apps/rentals/src/store/*"],
+      
+    },
+    "composite": true,           // ← REQUIRED for project references
+    "declaration": true,         // ← REQUIRED
+    "declarationMap": true,      // ← RECOMMENDED
+    "sourceMap": true            // ← RECOMMENDED
+  },
+  "include": ["apps", "packages"]
+}

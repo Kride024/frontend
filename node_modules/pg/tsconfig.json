@@ -1,0 +1,9 @@
+// frontend/apps/rentals/tsconfig.json — DELETE THIS FILE ENTIRELY
+// OR keep only this (minimal):
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*"]
+}

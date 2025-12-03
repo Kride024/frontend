@@ -1,0 +1,397 @@
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+
+const apiUrl = `${import.meta.env.VITE_API_URL}`;
+
+interface Country {
+  name: string;
+  code: string;
+  flag: string;
+}
+
+interface UserType {
+  id: number;
+  category: string;
+}
+
+interface FormData {
+  name: string;
+  mobile: string;
+  userType: string;
+}
+
+const CompactCallbackForm = () => {
+  const [formData, setFormData] = useState<FormData>({
+    name: "",
+    mobile: "",
+    userType: "",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [userTypes, setUserTypes] = useState<UserType[]>([]);
+  const [loadingUserTypes, setLoadingUserTypes] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch countries + user types
+  useEffect(() => {
+    async function fetchCountries() {
+      try {
+        const response = await axios.get(
+          "https://restcountries.com/v3.1/all?fields=name,cca2,flags,idd"
+        );
+
+        const data: Country[] = response.data.map((country: any) => ({
+          name: country.name.common,
+          code: country.idd?.root
+            ? country.idd.root + (country.idd?.suffixes?.[0] || "")
+            : "",
+          flag: country.flags?.png || "",
+        }));
+
+        setCountries(data);
+
+        const india = data.find((c) => c.name === "India");
+        if (india) setSelectedCountry(india);
+      } catch (err) {
+        console.error("Failed to load country data:", err);
+      }
+    }
+
+    async function fetchUserTypes() {
+      try {
+        setLoadingUserTypes(true);
+        const url = `${apiUrl}/user/getEnquirerCatCode`;
+
+        const response = await axios.get(url);
+        if (response.data.success) {
+          setUserTypes(response.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load user types:", err);
+      } finally {
+        setLoadingUserTypes(false);
+      }
+    }
+
+    fetchCountries();
+    fetchUserTypes();
+  }, []);
+
+  // Clicking outside => Close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+
+    if (name === "mobile" && value.length > 10) return;
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setIsSubmitting(true);
+
+    if (!formData.name || !formData.mobile || !formData.userType) {
+      setError("Please fill all required fields");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!/^\d{10}$/.test(formData.mobile)) {
+      setError("Please enter a valid 10-digit mobile number");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const selectedUserType = userTypes.find(
+        (type) =>
+          type.category.toLowerCase() === formData.userType.toLowerCase()
+      );
+
+      if (!selectedUserType) {
+        throw new Error("Invalid user type selected");
+      }
+
+      const payload = {
+        usercat: selectedUserType.id,
+        name: formData.name,
+        country_code: selectedCountry?.code || "",
+        mobile_no: formData.mobile,
+        status: 25,
+      };
+
+      const url = `${apiUrl}/user/addNewEnquiryRecord`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || "Request failed");
+      }
+
+      await response.json();
+
+      setShowSuccess(true);
+      setFormData({ name: "", mobile: "", userType: "" });
+
+      setTimeout(() => setShowPopup(false), 2000);
+      setTimeout(() => setShowSuccess(false), 4000);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filteredCountries = countries.filter((country) =>
+    country.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="rounded-lg mx-auto">
+      {showSuccess && !showPopup && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded shadow-lg animate-slideIn">
+          Form submitted successfully!
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-8">
+        <h1 className="text-2xl font-bold text-white rounded-md md:rounded-2xl">
+          Need a Tenant or Home Quickly? We Can Help!
+        </h1>
+
+        <button
+          onClick={() => setShowPopup(true)}
+          className="bg-yellow-500 hover:bg-yellow-400 text-black text-xl font-semibold py-2 px-4 rounded-lg shadow-md transition-transform duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-2"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+          </svg>
+          Request Callback
+        </button>
+      </div>
+
+      {showPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+          <div className="bg-white p-6 rounded-xl max-w-md w-full relative shadow-xl">
+            <button
+              onClick={() => {
+                setShowPopup(false);
+                setError(null);
+              }}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+
+            {showSuccess ? (
+              <div className="flex flex-col items-center py-6">
+                <svg
+                  className="w-12 h-12 text-green-500 mb-2 animate-bounce"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <p className="text-green-600 font-semibold text-lg">
+                  Submitted Successfully!
+                </p>
+                <p className="text-gray-500 text-sm">We’ll contact you soon.</p>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold mb-4">Request Callback</h2>
+
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <select
+                    name="userType"
+                    value={formData.userType}
+                    onChange={handleChange}
+                    required
+                    className="w-full p-2 border rounded text-gray-600 disabled:opacity-50"
+                    disabled={loadingUserTypes || isSubmitting}
+                  >
+                    <option value="" disabled hidden>
+                      {loadingUserTypes ? "Loading..." : "Select"}
+                    </option>
+
+                    {userTypes.map((type) => (
+                      <option key={type.id} value={type.category}>
+                        {type.category}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Your Name"
+                    className="w-full p-2 border rounded disabled:opacity-50"
+                    disabled={isSubmitting}
+                    required
+                  />
+
+                  <div className="flex items-center">
+                    <div className="relative w-1/3 mr-2" ref={dropdownRef}>
+                      <button
+                        type="button"
+                        className="w-full p-2 border rounded flex items-center justify-between bg-white disabled:opacity-50"
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        disabled={isSubmitting}
+                      >
+                        {selectedCountry ? (
+                          <div className="flex items-center space-x-2">
+                            <img
+                              src={selectedCountry.flag}
+                              alt={selectedCountry.name}
+                              className="w-5 h-5"
+                            />
+                            <span>{selectedCountry.code}</span>
+                          </div>
+                        ) : (
+                          <span>Code</span>
+                        )}
+                      </button>
+
+                      {isDropdownOpen && (
+                        <div className="absolute z-10 mt-1 bg-white border rounded shadow-lg w-full min-w-[240px]">
+                          <div
+                            className="p-2 border-b"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="text"
+                              placeholder="Search countries"
+                              className="w-full p-2 border rounded text-gray-500"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+
+                          <ul className="max-h-60 overflow-y-auto">
+                            {filteredCountries.map((country, idx) => (
+                              <li
+                                key={idx}
+                                className="p-2 flex items-center cursor-pointer hover:bg-gray-100"
+                                onClick={() => {
+                                  setSelectedCountry(country);
+                                  setIsDropdownOpen(false);
+                                  setSearchTerm("");
+                                }}
+                              >
+                                <img
+                                  src={country.flag}
+                                  alt={country.name}
+                                  className="w-5 h-5 mr-2"
+                                />
+                                <span className="truncate">
+                                  {country.name} {country.code}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      type="tel"
+                      name="mobile"
+                      value={formData.mobile}
+                      onChange={handleChange}
+                      placeholder="10-digit number"
+                      className="w-2/3 p-2 border rounded disabled:opacity-50"
+                      maxLength={10}
+                      disabled={isSubmitting}
+                      required
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    Enter your 10-digit mobile number
+                  </p>
+
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPopup(false);
+                        setError(null);
+                      }}
+                      className="px-4 py-2 border rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loadingUserTypes || isSubmitting}
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CompactCallbackForm;

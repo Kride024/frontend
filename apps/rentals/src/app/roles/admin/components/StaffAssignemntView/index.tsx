@@ -1,0 +1,24 @@
+import React, { useState, useEffect } from "react";
+import St from "./St";
+import { fetchComMapDetails } from "@/app/shared/services/api/adminApi";
+
+function  StaffAssignment() {
+  const [rmfm, setRmfm] = useState([]);
+
+  useEffect(() => {
+    const fetchrmfm = async () => {
+      try {
+        const response = await fetchComMapDetails();
+        setRmfm(response.data.result);
+      } catch (error) {
+        console.error("Error fetching RM/FM:", error);
+      }
+    };
+    fetchrmfm();
+  }, []);
+  return (
+      <St rmfm={rmfm} setRmfm={setRmfm} />
+  );
+}
+export default  StaffAssignment;
+

@@ -1,0 +1,48 @@
+{
+  "name": "rufrent-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/axios": "^0.14.4",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "axios": "^1.13.2",
+    "chart": "^0.1.2",
+    "chart.js": "^4.5.1",
+    "crypto-js": "^4.2.0",
+    "cryptojs": "^2.5.3",
+    "firebase": "^12.6.0",
+    "framer-motion": "^12.23.24",
+    "google-libphonenumber": "^3.2.43",
+    "js-cookie": "^3.0.5",
+    "lucide-react": "^0.554.0",
+    "prop-types": "^15.8.1",
+    "react": "^19.2.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.5.0",
+    "react-loader-spinner": "^8.0.0",
+    "react-router-dom": "^7.9.6",
+    "recharts": "^3.5.0",
+    "socket.io-client": "^4.8.1",
+    "zustand": "^5.0.8"
+  }
+}
