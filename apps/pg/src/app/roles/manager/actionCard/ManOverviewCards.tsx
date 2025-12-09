@@ -24,12 +24,12 @@ export default function FirstManager({ name }: FirstManagerProps) {
   const displayName = name || "Manager";
 
   const cards: React.ReactElement[] = [
-    <KpiCard key="checkin" title="Today’s Check-in" icon={IconCheckIn}>
+    <KpiCard key="checkin" title="Today's Check-in" icon={IconCheckIn}>
       <p style={{ fontSize: 20, color: "#000" }}>
         <span style={{ fontWeight: 800, fontSize: 28 }}>5</span> scheduled today<br /> 12/09/25
       </p>
     </KpiCard>,
-    <KpiCard key="checkout" title="Today’s Check-out" icon={IconCheckOut}>
+    <KpiCard key="checkout" title="Today's Check-out" icon={IconCheckOut}>
       <p style={{ fontSize: 20, color: "#000" }}>
         <span style={{ fontWeight: 800, fontSize: 28 }}>3</span> scheduled today as<br /> 12/09/25
       </p>
@@ -92,7 +92,9 @@ const IconCheckOut = (
 );
 
 const IconMaintenance = (
-  <img src="/Vector.png" alt="Maintenance Icon" width={42} height={42} />
+  <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42" fill="none">
+    <path d="M35 12.25H27.125V9.625C27.125 7.875 25.725 6.475 24.025 6.475H17.975C16.225 6.475 14.875 7.875 14.875 9.625V12.25H7C5.225 12.25 3.815 13.65 3.815 15.45L3.5 33.075C3.5 34.875 4.9 36.25 6.7 36.25H35.3C37.1 36.25 38.5 34.875 38.5 33.075V15.45C38.5 13.65 37.1 12.25 35.3 12.25H35ZM16.625 9.625H25.375V12.25H16.625V9.625ZM21 28.7C19.5625 28.7 18.375 27.5 18.375 26.075C18.375 24.625 19.5625 23.475 21 23.475C22.425 23.475 23.625 24.625 23.625 26.075C23.625 27.5 22.425 28.7 21 28.7Z" fill="#0B2595" />
+  </svg>
 );
 
 const IconOverdue = (
@@ -175,15 +177,69 @@ function KpiCard({ title, icon, children, onClick }: KpiCardProps) {
   );
 }
 
-// ---------- Mobile Carousel ----------
+// ---------- Responsive Carousel with Smart Arrow Positioning ----------
 function KpiCarousel({ cards }: KpiCarouselProps) {
   const [idx, setIdx] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const count = cards.length;
+
+  // Responsive layout state
+  const [arrowOffset, setArrowOffset] = useState(12);
+  const [visibleAreaWidth, setVisibleAreaWidth] = useState(0);
+
+  const CARD_WIDTH = 261;
+  const MIN_GAP = 16;
+  const SIDE_PADDING_MIN = 8;
+  const ARROW_SIZE = 40;
 
   const go = (n: number) => setIdx(((n % count) + count) % count);
   const prev = () => go(idx - 1);
   const next = () => go(idx + 1);
+
+  // Compute responsive arrow positioning based on screen width
+  useEffect(() => {
+    const compute = () => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+
+      const wrapperWidth = wrapper.clientWidth;
+      const available = Math.max(0, wrapperWidth - SIDE_PADDING_MIN * 2);
+      
+      // Calculate how many cards fit
+      let maxCount = Math.floor((available + MIN_GAP) / (CARD_WIDTH + MIN_GAP));
+      maxCount = Math.max(1, Math.min(maxCount, count));
+
+      const gapsCount = Math.max(0, maxCount - 1);
+      const remaining = Math.max(0, wrapperWidth - maxCount * CARD_WIDTH - SIDE_PADDING_MIN * 2);
+
+      // Calculate gap
+      let computedGap = MIN_GAP;
+      if (gapsCount > 0) {
+        const maxGapAllowed = 100;
+        computedGap = Math.floor(remaining / gapsCount);
+        computedGap = Math.max(MIN_GAP, Math.min(computedGap, maxGapAllowed));
+      }
+
+      // Calculate arrow position based on visible cards width
+      const computedVisibleAreaWidth = maxCount * CARD_WIDTH + gapsCount * computedGap;
+      const leftSpace = Math.max(0, (wrapperWidth - computedVisibleAreaWidth) / 2);
+      const offset = Math.max(8, Math.round(leftSpace - ARROW_SIZE / 2));
+
+      setVisibleAreaWidth(computedVisibleAreaWidth);
+      setArrowOffset(offset);
+    };
+
+    compute();
+    const ro = new ResizeObserver(compute);
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    window.addEventListener("resize", compute);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", compute);
+    };
+  }, []);
 
   useEffect(() => {
     const el = trackRef.current;
@@ -218,7 +274,7 @@ function KpiCarousel({ cards }: KpiCarouselProps) {
   return (
     <>
       {/* Mobile View */}
-      <div className="sm:hidden relative w-full">
+      <div className="sm:hidden relative w-full" ref={wrapperRef}>
         <div className="overflow-hidden" ref={trackRef}>
           <div
             className="flex transition-transform duration-300 ease-out"
@@ -235,7 +291,14 @@ function KpiCarousel({ cards }: KpiCarouselProps) {
         <button
           aria-label="Previous"
           onClick={prev}
-          className="group absolute left-3 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
+          style={{
+            position: "absolute",
+            left: `${arrowOffset}px`,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 30,
+          }}
+          className="group grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
         >
           <ChevronLeft className="w-5 h-5 text-[#0B2595] transition-transform group-hover:-translate-x-0.5" />
         </button>
@@ -243,7 +306,14 @@ function KpiCarousel({ cards }: KpiCarouselProps) {
         <button
           aria-label="Next"
           onClick={next}
-          className="group absolute right-3 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
+          style={{
+            position: "absolute",
+            right: `${arrowOffset}px`,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 30,
+          }}
+          className="group grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
         >
           <ChevronRight className="w-5 h-5 text-[#0B2595] transition-transform group-hover:translate-x-0.5" />
         </button>

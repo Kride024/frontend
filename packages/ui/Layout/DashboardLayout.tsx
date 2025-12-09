@@ -8,10 +8,15 @@ export const DashboardLayout: FC = () => {
   // Explicitly defining state types: boolean
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isTablet, setIsTablet] = useState<boolean>(false);
 
   useEffect(() => {
     // Define the type for the event handler's parameter (optional but good practice)
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+      const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 640); // Mobile: < 640px (sm breakpoint)
+      setIsTablet(width >= 640 && width < 1024); // Tablet: 640px - 1023px (sm to lg)
+    };
 
     handleResize();
     // No need to explicitly type 'window' as it's a global object
@@ -23,10 +28,12 @@ export const DashboardLayout: FC = () => {
 
   // Determine the CSS margin class based on state
   const mainMarginClass: string = isMobile
-    ? "pt-16 ml-0"
+    ? "pt-7 ml-0" // Mobile: top navbar, no left margin
+    : isTablet
+    ? "pt-7 ml-0" // Tablet: horizontal top navbar, no left margin
     : isOpen
-    ? "ml-48" // When open (desktop)
-    : "ml-16"; // When closed (desktop)
+    ? "ml-48" // Desktop with open sidebar
+    : "ml-16"; // Desktop with closed sidebar
 
   return (
     <div className="flex app-shell">

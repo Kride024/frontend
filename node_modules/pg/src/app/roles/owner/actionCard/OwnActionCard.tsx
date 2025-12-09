@@ -29,10 +29,10 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   const [isAddGuestOpen, setIsAddGuestOpen] = useState<boolean>(false);
   const [announcementSuccess, setAnnouncementSuccess] = useState<boolean>(false);
 
-  // Layout constants (same approach as OwnOverviewCard)
-  const BUTTON_WIDTH = 220; // fixed button width (px)
-  const MIN_GAP = 24; // minimum gap between buttons
-  const SIDE_PADDING_MIN = 12;
+  // Layout constants
+  const BUTTON_WIDTH = 220;
+  const MIN_GAP = 16; // Reduced from 24 to allow more cards
+  const SIDE_PADDING_MIN = 8; // Reduced from 12
   const ARROW_SIZE = 36;
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -44,9 +44,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   const [gap, setGap] = useState<number>(MIN_GAP);
   const [sidePadding, setSidePadding] = useState<number>(SIDE_PADDING_MIN);
   const [arrowOffset, setArrowOffset] = useState<number>(12);
-  const [visibleAreaWidth, setVisibleAreaWidth] = useState<number>(0);
 
-  // Button definitions (exact same UI, no changes)
+  // Button definitions
   const buttonDefs = [
     {
       id: "add-manager",
@@ -102,38 +101,48 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   const totalButtons = buttonDefs.length;
 
-  // Responsive layout computation (same logic as OwnOverviewCard)
+  // Responsive layout computation - optimized for tablet
   useEffect(() => {
     const compute = () => {
       const wrapper = wrapperRef.current;
       if (!wrapper) return;
       const wrapperWidth = wrapper.clientWidth;
 
+      // Calculate available space more aggressively
       const available = Math.max(0, wrapperWidth - SIDE_PADDING_MIN * 2);
+      
+      // Calculate how many cards can fit
       let maxCount = Math.floor((available + MIN_GAP) / (BUTTON_WIDTH + MIN_GAP));
       maxCount = Math.max(1, Math.min(maxCount, totalButtons));
 
-      const gapsCount = Math.max(0, maxCount - 1);
-      const remaining = Math.max(0, wrapperWidth - maxCount * BUTTON_WIDTH - SIDE_PADDING_MIN * 2);
+      const totalCardWidth = maxCount * BUTTON_WIDTH;
+      const remaining = Math.max(0, wrapperWidth - totalCardWidth);
 
-      // Calculate gap: distribute remaining space across gaps with maximum expansion
-      let computedGap = MIN_GAP;
+      const gapsCount = Math.max(0, maxCount - 1);
+      const preferredSidePadding = SIDE_PADDING_MIN;
+
+      let computedGap;
       if (gapsCount > 0) {
-        const maxGapAllowed = 250; // Increased to 250 for maximum expansion
-        computedGap = Math.floor(remaining / gapsCount);
-        computedGap = Math.max(MIN_GAP, Math.min(computedGap, maxGapAllowed));
+        // Distribute remaining space across gaps
+        computedGap = Math.floor((remaining - preferredSidePadding * 2) / gapsCount);
+        computedGap = Math.max(MIN_GAP, computedGap);
+        
+        // Cap maximum gap at 100px for better aesthetics
+        const maxGapAllowed = 100;
+        computedGap = Math.min(computedGap, maxGapAllowed);
       } else {
-        computedGap = Math.max(MIN_GAP, Math.floor(remaining / 2));
+        computedGap = MIN_GAP;
       }
+
+      if (!isFinite(computedGap) || computedGap <= 0) computedGap = MIN_GAP;
 
       const computedVisibleAreaWidth = maxCount * BUTTON_WIDTH + gapsCount * computedGap;
       const leftSpace = Math.max(0, (wrapperWidth - computedVisibleAreaWidth) / 2);
       const offset = Math.max(8, Math.round(leftSpace - ARROW_SIZE / 2));
 
       setVisibleCount(maxCount);
-      setGap(computedGap);
-      setSidePadding(SIDE_PADDING_MIN);
-      setVisibleAreaWidth(computedVisibleAreaWidth);
+      setGap(Math.round(computedGap));
+      setSidePadding(preferredSidePadding);
       setArrowOffset(offset);
       setStartIndex((s) => Math.min(s, Math.max(0, totalButtons - maxCount)));
     };
@@ -159,10 +168,17 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <div className="w-full px-0 py-6">
         <section className="flex justify-center relative">
           <div
-            className="w-full max-w-[1260px] 2xl:max-w-[2300px] 3xl:max-w-[2300px] mx-auto relative"
+            className="w-full max-w-[1260px] 2xl:max-w-[2300px] mx-auto relative"
             ref={wrapperRef}
           >
-            <div ref={containerRef} style={{ overflowX: "hidden", padding: `calc(0.5rem + 12px) ${sidePadding}px` }}>
+            <div 
+              ref={containerRef} 
+              style={{ 
+                overflowX: "hidden", 
+                overflowY: "visible",
+                padding: `calc(0.5rem + 12px) ${sidePadding}px` 
+              }}
+            >
               <div
                 aria-live="polite"
                 className="flex items-start"
@@ -181,9 +197,17 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
                     onClick={btn.onClick}
                     className="group w-[220px] h-[171px] rounded-[25px] bg-white shadow-[6px_6px_6px_rgba(0,0,0,0.25)] relative flex flex-col items-center justify-center gap-4 transition-transform duration-200 hover:-translate-y-2 flex-shrink-0"
                   >
-                    <span aria-hidden="true" className="absolute -inset-[1px] rounded-[25px] border-[0.7px] border-transparent pointer-events-none group-hover:border-[#FF8F6B]" />
-                    <div className="w-[42px] h-[42px] flex items-center justify-center">{btn.icon}</div>
-                    <div className="text-center font-poppins font-semibold text-[20px]" style={{ color: "#073C9E" }}>
+                    <span 
+                      aria-hidden="true" 
+                      className="absolute -inset-[1px] rounded-[25px] border-[0.7px] border-transparent pointer-events-none group-hover:border-[#FF8F6B]" 
+                    />
+                    <div className="w-[42px] h-[42px] flex items-center justify-center">
+                      {btn.icon}
+                    </div>
+                    <div 
+                      className="text-center font-poppins font-semibold text-[20px]" 
+                      style={{ color: "#073C9E" }}
+                    >
                       {btn.label}
                     </div>
                   </button>
@@ -195,12 +219,14 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             <button
               aria-label="Previous button"
               onClick={goLeft}
+              disabled={!canGoLeft}
               style={{
                 position: "absolute",
                 left: `${arrowOffset}px`,
                 top: "50%",
                 transform: "translateY(-50%)",
                 zIndex: 30,
+                display: canGoLeft ? "flex" : "none",
                 alignItems: "center",
                 justifyContent: "center",
                 width: ARROW_SIZE,
@@ -210,10 +236,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
                 boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
                 border: "none",
                 color: "#0B2595",
-                display: "flex",
-                opacity: canGoLeft ? 1 : 0.32,
-                pointerEvents: canGoLeft ? "auto" : "none",
-                transition: "opacity 160ms ease",
+                cursor: "pointer",
               }}
             >
               <ChevronLeft size={18} />
@@ -222,12 +245,14 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             <button
               aria-label="Next button"
               onClick={goRight}
+              disabled={!canGoRight}
               style={{
                 position: "absolute",
                 right: `${arrowOffset}px`,
                 top: "50%",
                 transform: "translateY(-50%)",
                 zIndex: 30,
+                display: canGoRight ? "flex" : "none",
                 alignItems: "center",
                 justifyContent: "center",
                 width: ARROW_SIZE,
@@ -237,10 +262,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
                 boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
                 border: "none",
                 color: "#0B2595",
-                display: "flex",
-                opacity: canGoRight ? 1 : 0.32,
-                pointerEvents: canGoRight ? "auto" : "none",
-                transition: "opacity 160ms ease",
+                cursor: "pointer",
               }}
             >
               <ChevronRight size={18} />

@@ -113,135 +113,165 @@ export default function Navbar({ isOpen, setIsOpen }: NavbarProps) {
   }, [viewportW, isOpen, isDesktop, setIsOpen]);
 
   /* ----- Top Horizontal Navbar for Mobile + Tablet ------ */
-  if (!isDesktop) {
-    return (
-      <div className="fixed top-0 left-0 right-0 h-14 flex items-center justify-between px-4 bg-[#001433] shadow-sm z-50">
-        <div
-          className="h-9 w-28 bg-contain bg-no-repeat bg-left cursor-pointer"
-          style={{ backgroundImage: `url(${logo})` }}
-          onClick={() => navigate(`${PG_BASE}/dashboard`)}
-        />
-        <div className="flex items-center gap-3 relative" ref={menuRef}>
+if (!isDesktop) {
+  return (
+    <div className="fixed top-0 left-0 right-0 h-14 flex items-center justify-between px-4 bg-[#001433] shadow-sm z-50">
+      <div
+        className="h-8 w-28 bg-contain bg-no-repeat bg-left cursor-pointer hover:opacity-80 transition"
+        style={{ backgroundImage: `url(${logo})` }}
+        onClick={() => navigate(`${PG_BASE}`)}
+      />
+      <div className="flex items-center gap-3 relative" ref={menuRef}>
+        <button
+          className="w-8 h-8 flex items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          aria-expanded={showMenu}
+          aria-haspopup="true"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMenu((s) => !s);
+          }}
+        >
+          <div className="flex flex-col justify-center items-center space-y-1.5">
+            <span className="block w-5 h-0.5 bg-white rounded"></span>
+            <span className="block w-5 h-0.5 bg-white rounded"></span>
+            <span className="block w-5 h-0.5 bg-white rounded"></span>
+          </div>
+        </button>
+
+        {/* Popover menu */}
+        {showMenu && (
+          <div
+            className="fixed right-0 top-14 w-56 bg-white rounded-lg shadow-lg text-slate-800 overflow-hidden origin-top-right z-50"
+            role="menu"
+          >
+            <ul className="flex flex-col">
+              {navItems.map((item, idx) => (
+                <li key={idx} className="border-b last:border-b-0">
+                  <button
+                    className="w-full text-left px-4 py-3 hover:bg-slate-100 flex items-center gap-3"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      navigate(item.to);
+                    }}
+                    role="menuitem"
+                  >
+                    <span className="text-slate-600">{item.icon}</span>
+                    <span className="text-sm">{item.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ----- Desktop Sidebar ------ */
+return (
+  <aside
+    className={`fixed top-0 left-0 h-screen bg-gray-900 text-white transition-all duration-300 ${
+      isOpen ? "w-56" : "w-16"
+    } flex flex-col`}
+  >
+    {/* Toggle Button or Logo */}
+    <div className="p-3">
+      {isOpen ? (
+        <div className="flex items-center justify-between">
+          <div
+            className="h-8 w-28 bg-contain bg-no-repeat bg-left cursor-pointer hover:opacity-80 transition"
+            style={{ backgroundImage: `url(${logo})` }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(`${PG_BASE}`, { replace: false });
+            }}
+          />
           <button
-            className="w-8 h-8 flex items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            aria-expanded={showMenu}
-            aria-haspopup="true"
             onClick={(e) => {
               e.stopPropagation();
-              setShowMenu((s) => !s);
+              setIsOpen(false);
             }}
-            onMouseEnter={openMenu}
+            className="p-1 hover:bg-gray-800 rounded transition"
+            aria-label="Close sidebar"
           >
-            <div className="flex flex-col justify-center items-center space-y-1.5">
-              <span className="block w-5 h-0.5 bg-white rounded"></span>
-              <span className="block w-5 h-0.5 bg-white rounded"></span>
-              <span className="block w-5 h-0.5 bg-white rounded"></span>
-            </div>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-
-          {/* Popover menu */}
-          {showMenu && (
-            <div
-              className="fixed right-0 top-14 w-56 bg-white rounded-lg shadow-lg text-slate-800 overflow-hidden origin-top-right z-50"
-              role="menu"
-              onMouseEnter={openMenu}
-              onMouseLeave={closeMenu}
-            >
-              <ul className="flex flex-col">
-                {navItems.map((item, idx) => (
-                  <li key={idx} className="border-b last:border-b-0">
-                    <button
-                      className="w-full text-left px-4 py-3 hover:bg-slate-100 flex items-center gap-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        navigate(item.to);
-                      }}
-                      role="menuitem"
-                    >
-                      <span className="text-slate-600">{item.icon}</span>
-                      <span className="text-sm">{item.label}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
-      </div>
-    );
-  }
-
-  /* ----- Desktop Sidebar ------ */
-  return (
-    <aside
-      className={`fixed top-0 left-0 h-screen bg-gray-900 text-white transition-all duration-300 ${
-        isOpen ? "w-56" : "w-16"
-      } flex flex-col`}
-    >
-      {/* Toggle Button or Logo */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-3 text-center hover:bg-gray-800 rounded-lg"
-      >
-        {isOpen ? (
+      ) : (
+        <div className="flex items-center justify-between">
           <div
-            className="h-8 w-28 bg-contain bg-no-repeat bg-center cursor-pointer"
+            className="h-8 w-8 bg-contain bg-no-repeat bg-center cursor-pointer hover:opacity-80 transition"
             style={{ backgroundImage: `url(${logo})` }}
-            onClick={() => navigate(`${PG_BASE}/dashboard`)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(`${PG_BASE}/dashboard`, { replace: false });
+            }}
           />
-        ) : (
-          <div className="flex flex-col justify-center space-y-1 cursor-pointer mt-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(true);
+            }}
+            className="flex flex-col justify-center items-center space-y-1 cursor-pointer hover:bg-gray-800 rounded-lg p-2 transition"
+            aria-label="Open sidebar"
+          >
             <span className="block w-6 h-0.5 bg-white"></span>
             <span className="block w-6 h-0.5 bg-white"></span>
             <span className="block w-6 h-0.5 bg-white"></span>
-          </div>
-        )}
-      </button>
+          </button>
+        </div>
+      )}
+    </div>
 
-      {/* Navigation Links */}
-      <nav className="mt-2 overflow-auto">
-        <ul className="flex flex-col space-y-2 px-0.5">
-          {navItems.map((item, idx) => {
-            const isActive = location.pathname === item.to;
-            const base =
-              "relative flex items-center gap-3 px-4 py-2 rounded-md transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900";
-            const normal = isActive ? "bg-gray-700 text-yellow-400" : "hover:bg-gray-800";
-            const emphasized =
-              "bg-gradient-to-r from-amber-400/20 to-orange-500/20 hover:from-amber-400/30 hover:to-orange-500/30";
+    {/* Navigation Links */}
+    <nav className="mt-2 overflow-auto">
+      <ul className="flex flex-col space-y-2 px-0.5">
+        {navItems.map((item, idx) => {
+          const isActive = location.pathname === item.to;
+          const base =
+            "relative flex items-center gap-3 px-4 py-2 rounded-md transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900";
+          const normal = isActive ? "bg-gray-700 text-yellow-400" : "hover:bg-gray-800";
+          const emphasized =
+            "bg-gradient-to-r from-amber-400/20 to-orange-500/20 hover:from-amber-400/30 hover:to-orange-500/30";
 
-            return (
-              <li key={idx}>
-                <NavLink
-                  to={item.to}
-                  end={item.label === "Dashboard"}
-                  className={`${base} ${item.emphasis ? emphasized : normal}`}
-                >
-                  <span className="text-white relative">
-                    {item.icon}
-                    {item.emphasis && !isOpen && !isActive && (
-                      <>
-                        <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-400 rounded-full animate-ping"></span>
-                        <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full"></span>
-                      </>
-                    )}
-                  </span>
-                  {isOpen && <span>{item.label}</span>}
-                </NavLink>
-              </li>
-            );
-          })}
-        </ul>
+          return (
+            <li key={idx}>
+              <NavLink
+                to={item.to}
+                end={item.label === "Dashboard"}
+                className={`${base} ${item.emphasis ? emphasized : normal}`}
+              >
+                <span className="text-white relative">
+                  {item.icon}
+                  {item.emphasis && !isOpen && !isActive && (
+                    <>
+                      <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-400 rounded-full animate-ping"></span>
+                      <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full"></span>
+                    </>
+                  )}
+                </span>
+                {isOpen && <span>{item.label}</span>}
+              </NavLink>
+            </li>
+          );
+        })}
+      </ul>
 
-        {/* Promo Card */}
-        {isOpen && (
-          <div className="px-3 pt-3 pb-2">
-            <PromoPGCard onList={() => navigate(`${PG_BASE}/ads/new`)} />
-          </div>
-        )}
-      </nav>
-    </aside>
-  );
+      {/* Promo Card */}
+      {isOpen && (
+        <div className="px-3 pt-3 pb-2">
+          <PromoPGCard onList={() => navigate(`${PG_BASE}/ads/new`)} />
+        </div>
+      )}
+    </nav>
+  </aside>
+);
 }
 
 /* PromoPGCard Component */
