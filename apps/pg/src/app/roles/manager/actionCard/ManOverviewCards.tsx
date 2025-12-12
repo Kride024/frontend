@@ -14,16 +14,27 @@ interface KpiCardProps {
   onClick?: () => void;
 }
 
-interface KpiCarouselProps {
-  cards: React.ReactElement[];
-}
-
 // ---------- Main Component ----------
 export default function FirstManager({ name }: FirstManagerProps) {
   const navigate = useNavigate();
   const displayName = name || "Manager";
 
-  const cards: React.ReactElement[] = [
+  // Layout constants
+  const CARD_WIDTH = 261;
+  const MIN_GAP = 8; // ✅ Changed from 16 to 8 to match owner dashboard
+  const SIDE_PADDING_MIN = 8;
+  const ARROW_SIZE = 36;
+
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState<number>(4);
+  const [startIndex, setStartIndex] = useState<number>(0);
+  const [cardGap, setCardGap] = useState<number>(16);
+  const [sidePadding, setSidePadding] = useState<number>(SIDE_PADDING_MIN);
+  const [arrowOffset, setArrowOffset] = useState<number>(12);
+  const [justifyContent, setJustifyContent] = useState<"center" | "space-between">("center");
+  // Cards array
+  const cards = [
     <KpiCard key="checkin" title="Today's Check-in" icon={IconCheckIn}>
       <p style={{ fontSize: 20, color: "#000" }}>
         <span style={{ fontWeight: 800, fontSize: 28 }}>5</span> scheduled today<br /> 12/09/25
@@ -46,6 +57,77 @@ export default function FirstManager({ name }: FirstManagerProps) {
     </KpiCard>,
   ];
 
+  // Compute layout & arrow positions
+  const recomputeLayout = () => {
+    const wrapper = wrapperRef.current;
+    const container = containerRef.current;
+    if (!wrapper || !container) return;
+
+    const wrapperWidth = wrapper.clientWidth;
+    const available = Math.max(0, wrapperWidth - SIDE_PADDING_MIN * 2);
+
+    // How many full cards fit
+    let maxCount = Math.floor((available + MIN_GAP) / (CARD_WIDTH + MIN_GAP));
+    maxCount = Math.max(1, Math.min(maxCount, cards.length));
+
+    const totalCardWidth = maxCount * CARD_WIDTH;
+    const remaining = Math.max(0, wrapperWidth - totalCardWidth);
+
+    const gapsCount = Math.max(0, maxCount - 1);
+    const preferredSidePadding = SIDE_PADDING_MIN;
+
+let computedGap;
+if (gapsCount > 0) {
+  // Distribute remaining space across gaps - this allows gaps to grow on large screens
+  computedGap = Math.floor((remaining - preferredSidePadding * 2) / gapsCount);
+  computedGap = Math.max(MIN_GAP, computedGap);
+  
+  // Cap at 100px to prevent excessive spacing on 4K displays
+  const MAX_GAP = 250;
+  computedGap = Math.min(computedGap, MAX_GAP);
+} else {
+  computedGap = Math.max(MIN_GAP, remaining / 2);
+}
+
+    if (!isFinite(computedGap) || computedGap <= 0) computedGap = MIN_GAP;
+
+    setVisibleCount(maxCount);
+    setCardGap(Math.round(computedGap));
+    setSidePadding(preferredSidePadding);
+
+    // Arrow positioning - keep them at the edges with minimum padding
+    const offset = Math.max(8, SIDE_PADDING_MIN);
+    setArrowOffset(Math.round(offset));
+    // Use space-between on 4K screens (>= 1700px width), center on smaller screens
+    console.log('wrapperWidth:', wrapperWidth, 'justifyContent will be:', wrapperWidth >= 1700 ? 'space-between' : 'center');
+   if (wrapperWidth >= 1700) {
+  setJustifyContent("space-between");
+ } else {
+  setJustifyContent("center");
+ }
+
+// Clamp startIndex
+setStartIndex((s) => Math.min(s, Math.max(0, cards.length - maxCount)));
+  };
+
+  useEffect(() => {
+    recomputeLayout();
+    const ro = new ResizeObserver(recomputeLayout);
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    window.addEventListener("resize", recomputeLayout);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recomputeLayout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Navigation: single-step
+  const canGoLeft = startIndex > 0;
+  const canGoRight = startIndex + visibleCount < cards.length;
+  const goLeft = () => setStartIndex((s) => Math.max(0, s - 1));
+  const goRight = () => setStartIndex((s) => Math.min(cards.length - visibleCount, s + 1));
+
   return (
     <div className="w-full p-4">
       <header className="mb-6">
@@ -65,8 +147,91 @@ export default function FirstManager({ name }: FirstManagerProps) {
         </div>
       </header>
 
-      <section className="w-full">
-        <KpiCarousel cards={cards} />
+      <section className="flex justify-center relative">
+        <div
+          className="w-full max-w-[1260px] 2xl:max-w-[2500px] mx-auto relative"
+          ref={wrapperRef}
+        >
+          <div
+            ref={containerRef}
+            style={{
+              overflowX: "hidden",
+              overflowY: "visible",
+              padding: `calc(0.5rem + 12px) ${sidePadding}px`,
+            }}
+          >
+            <div
+              aria-live="polite"
+              className="flex items-start"
+              style={{
+                gap: `${cardGap}px`,
+                justifyContent: justifyContent,
+                transition: "gap 160ms linear",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              {cards
+                .slice(startIndex, startIndex + visibleCount)
+                .map((card, idx) => (
+                  <div key={`card-${startIndex + idx}`}>{card}</div>
+                ))}
+            </div>
+          </div>
+
+          {/* Arrows placed relative to wrapper, offset computed to sit near visible cards area */}
+          <button
+            aria-label="Previous card"
+            onClick={goLeft}
+            disabled={!canGoLeft}
+            style={{
+              position: "absolute",
+              left: `${arrowOffset}px`,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 30,
+              display: canGoLeft ? "flex" : "none",
+              alignItems: "center",
+              justifyContent: "center",
+              width: ARROW_SIZE,
+              height: ARROW_SIZE,
+              borderRadius: 9999,
+              background: "white",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+              border: "none",
+              color: "#0B2595",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <button
+            aria-label="Next card"
+            onClick={goRight}
+            disabled={!canGoRight}
+            style={{
+              position: "absolute",
+              right: `${arrowOffset}px`,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 30,
+              display: canGoRight ? "flex" : "none",
+              alignItems: "center",
+              justifyContent: "center",
+              width: ARROW_SIZE,
+              height: ARROW_SIZE,
+              borderRadius: 9999,
+              background: "white",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+              border: "none",
+              color: "#0B2595",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -174,169 +339,5 @@ function KpiCard({ title, icon, children, onClick }: KpiCardProps) {
         }
       `}</style>
     </article>
-  );
-}
-
-// ---------- Responsive Carousel with Smart Arrow Positioning ----------
-function KpiCarousel({ cards }: KpiCarouselProps) {
-  const [idx, setIdx] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const count = cards.length;
-
-  // Responsive layout state
-  const [arrowOffset, setArrowOffset] = useState(12);
-  const [visibleAreaWidth, setVisibleAreaWidth] = useState(0);
-
-  const CARD_WIDTH = 261;
-  const MIN_GAP = 16;
-  const SIDE_PADDING_MIN = 8;
-  const ARROW_SIZE = 40;
-
-  const go = (n: number) => setIdx(((n % count) + count) % count);
-  const prev = () => go(idx - 1);
-  const next = () => go(idx + 1);
-
-  // Compute responsive arrow positioning based on screen width
-  useEffect(() => {
-    const compute = () => {
-      const wrapper = wrapperRef.current;
-      if (!wrapper) return;
-
-      const wrapperWidth = wrapper.clientWidth;
-      const available = Math.max(0, wrapperWidth - SIDE_PADDING_MIN * 2);
-      
-      // Calculate how many cards fit
-      let maxCount = Math.floor((available + MIN_GAP) / (CARD_WIDTH + MIN_GAP));
-      maxCount = Math.max(1, Math.min(maxCount, count));
-
-      const gapsCount = Math.max(0, maxCount - 1);
-      const remaining = Math.max(0, wrapperWidth - maxCount * CARD_WIDTH - SIDE_PADDING_MIN * 2);
-
-      // Calculate gap
-      let computedGap = MIN_GAP;
-      if (gapsCount > 0) {
-        const maxGapAllowed = 100;
-        computedGap = Math.floor(remaining / gapsCount);
-        computedGap = Math.max(MIN_GAP, Math.min(computedGap, maxGapAllowed));
-      }
-
-      // Calculate arrow position based on visible cards width
-      const computedVisibleAreaWidth = maxCount * CARD_WIDTH + gapsCount * computedGap;
-      const leftSpace = Math.max(0, (wrapperWidth - computedVisibleAreaWidth) / 2);
-      const offset = Math.max(8, Math.round(leftSpace - ARROW_SIZE / 2));
-
-      setVisibleAreaWidth(computedVisibleAreaWidth);
-      setArrowOffset(offset);
-    };
-
-    compute();
-    const ro = new ResizeObserver(compute);
-    if (wrapperRef.current) ro.observe(wrapperRef.current);
-    window.addEventListener("resize", compute);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", compute);
-    };
-  }, []);
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-
-    let startX = 0;
-
-    const onStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
-    };
-
-    const onEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      if (Math.abs(dx) > 40) {
-        dx > 0 ? prev() : next();
-      }
-    };
-
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchend", onEnd);
-
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchend", onEnd);
-    };
-  }, [idx]);
-
-  const trackWidth = `${count * 100}%`;
-  const translateX = `-${(100 / count) * idx}%`;
-  const childWidth = `${100 / count}%`;
-
-  return (
-    <>
-      {/* Mobile View */}
-      <div className="sm:hidden relative w-full" ref={wrapperRef}>
-        <div className="overflow-hidden" ref={trackRef}>
-          <div
-            className="flex transition-transform duration-300 ease-out"
-            style={{ width: trackWidth, transform: `translateX(${translateX})` }}
-          >
-            {cards.map((card, i) => (
-              <div key={i} className="flex justify-center p-1" style={{ width: childWidth }}>
-                {card}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          aria-label="Previous"
-          onClick={prev}
-          style={{
-            position: "absolute",
-            left: `${arrowOffset}px`,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 30,
-          }}
-          className="group grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
-        >
-          <ChevronLeft className="w-5 h-5 text-[#0B2595] transition-transform group-hover:-translate-x-0.5" />
-        </button>
-
-        <button
-          aria-label="Next"
-          onClick={next}
-          style={{
-            position: "absolute",
-            right: `${arrowOffset}px`,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 30,
-          }}
-          className="group grid place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-lg hover:bg-white hover:shadow-xl active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BE3]/60"
-        >
-          <ChevronRight className="w-5 h-5 text-[#0B2595] transition-transform group-hover:translate-x-0.5" />
-        </button>
-
-        <div className="flex justify-center gap-2 mt-3">
-          {cards.map((_, i) => {
-            const isActive = i === idx;
-            return (
-              <button
-                key={i}
-                onClick={() => setIdx(i)}
-                className={`inline-block w-2.5 h-2.5 rounded-full transition-colors ${isActive ? "bg-[#4F6BE3]" : "bg-gray-300"}`}
-                aria-label={`Go to card ${i + 1}`}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Desktop Grid */}
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-6 justify-items-center">
-        {cards}
-      </div>
-    </>
   );
 }
