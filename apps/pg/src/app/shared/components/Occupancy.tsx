@@ -1,5 +1,5 @@
 // OccupancyPage.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +14,13 @@ import {
 } from "recharts";
 import { ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react"; 
 
+const hideScrollbarStyles = `
+.hide-scrollbar { -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar { display: none; /* WebKit */ }
+`;
+
 // ---------------------------------------------------------------------
 // 1. Reusable UI Components
 // ---------------------------------------------------------------------
@@ -23,7 +30,7 @@ const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({
   className = "",
 }) => (
   <div
-    className={`bg-white rounded-2xl p-6 shadow-xl ${className}`} 
+    className={`bg-white rounded-2xl p-6 ${className}`} 
   >
     {children}
   </div>
@@ -42,7 +49,7 @@ const CardTitle: React.FC<{ children: React.ReactNode; className?: string }> = (
   children,
   className = "",
 }) => (
-  <h2 className={`text-xl font-semibold text-gray-800 ${className}`}>
+  <h2 className={`text-xl md:text-xl lg:text-xl font-semibold text-gray-800 ${className}`}>
     {children}
   </h2>
 );
@@ -58,7 +65,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button: React.FC<ButtonProps> = ({ children, active = false, ...props }) => (
   <button
-    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+    className={`px-3 py-1 rounded-full text-xs lg:text-xs font-medium transition-colors whitespace-nowrap ${
       active
         ? "bg-blue-600 text-white shadow-md"
         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -150,6 +157,10 @@ const OccupancyPage: React.FC = () => {
   const [filter, setFilter] = useState<"all" | "occupied" | "vacant" | "reserved">("all");
   
   const carouselRef = useRef<HTMLDivElement>(null); 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const cardWidthRef = useRef<number>(0);
+  const [cardGap, setCardGap] = useState<number>(16);
+  const [sidePadding, setSidePadding] = useState<number>(16);
 
   const occupancyCount = { occupied: 30, total: 53 };
   const occupancyPercent = Math.round(
@@ -162,44 +173,88 @@ const OccupancyPage: React.FC = () => {
 
   const scrollCards = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
-      // Determine scroll amount based on current screen size to align better with the larger card width (400px)
-      const isLargeScreen = window.innerWidth >= 1024; // Check if screen is large (lg breakpoint)
-      const cardWidth = isLargeScreen ? 400 : 320;
-      const gap = 16; // gap-4 is 16px
-      
-      const scrollAmount = direction === 'right' 
-        ? cardWidth + gap
-        : -(cardWidth + gap);
-      
+      const measured = cardWidthRef.current || (window.innerWidth >= 1024 ? 400 : window.innerWidth >= 640 ? 320 : 280);
+      const scrollAmount = direction === 'right' ? measured + cardGap : -(measured + cardGap);
       carouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
+  // Recompute layout so we only count fully visible cards and distribute
+  // remaining space into gaps (including side padding) so the row looks filled.
+  useEffect(() => {
+    const recomputeLayout = () => {
+      const wrapper = wrapperRef.current || carouselRef.current?.parentElement as HTMLDivElement | null;
+      const container = carouselRef.current;
+      if (!container || !wrapper) return;
+
+      const wrapperWidth = wrapper.clientWidth;
+      const firstChild = container.firstElementChild as HTMLElement | null;
+      const measuredCard = firstChild ? Math.round(firstChild.getBoundingClientRect().width) : (window.innerWidth >= 1024 ? 400 : window.innerWidth >= 640 ? 320 : 280);
+      cardWidthRef.current = measuredCard;
+
+      // Count only fully visible cards
+      let visibleCount = Math.max(1, Math.floor(wrapperWidth / measuredCard));
+      visibleCount = Math.min(visibleCount, container.children.length || visibleCount);
+
+      const totalCardsWidth = visibleCount * measuredCard;
+      const remainingSpace = Math.max(0, wrapperWidth - totalCardsWidth);
+
+      // Distribute remaining space into gaps: between cards and the two side paddings
+      const numberOfGaps = visibleCount + 1; // left + right + between cards
+      const minGap = window.innerWidth >= 1024 ? 20 : 12;
+      let computedGap = Math.floor(remainingSpace / numberOfGaps);
+      if (computedGap < minGap) computedGap = minGap;
+
+      // Recalculate side padding to center the blocks if computedGap * numberOfGaps doesn't exactly fill
+      const usedGapsWidth = computedGap * (visibleCount - 1);
+      const usedSides = Math.max(0, remainingSpace - usedGapsWidth);
+      const computedSide = Math.max(minGap, Math.floor(usedSides / 2));
+
+      setCardGap(computedGap);
+      setSidePadding(computedSide);
+    };
+
+    recomputeLayout();
+    const ro = new ResizeObserver(() => recomputeLayout());
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    if (carouselRef.current) ro.observe(carouselRef.current);
+    window.addEventListener('resize', recomputeLayout);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', recomputeLayout);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#E7EFF7] p-4 sm:p-6 lg:p-10">
+      <style>{hideScrollbarStyles}</style>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-gray-800">
+        <h1 className="mt-5  sm:mt-0 md:mt-0 lg:mt-0 xl-mt-0 2xl:mt-0 text-xl md:text-3xl lg:text-3xl font-semibold text-gray-800">
           Occupancy Dashboard
         </h1>
-        <button className="flex items-center gap-2 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-200 transition-colors text-sm md:text-base">
-          <ArrowLeft size={16} /> Back
+        <button
+          className="flex items-center gap-2 bg-blue-100 text-blue-600 transition-colors text-sm md:text-base lg:text-base
+            w-10 h-10 p-1 rounded-full shadow-lg justify-center sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:rounded-lg mt-5 lg:mt-0 2xl:mt-0 ml-2 lg:ml-0 2xl:ml-0 hover:bg-blue-200"
+        >
+          <ArrowLeft size={16} />
+          <span className="hidden sm:inline">Back</span>
         </button>
       </div>
 
       {/* Card Carousel Wrapper (Universal Scroll) */}
-      <div className="relative mb-6">
+      <div ref={wrapperRef} className="relative mb-6">
         
         {/* Navigation Arrows */}
         <button 
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white/80 p-2 rounded-full shadow-lg hidden sm:block text-blue-600 hover:bg-white transition-colors"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white/80 p-2 rounded-full shadow-lg text-blue-600 hover:bg-white transition-colors"
           onClick={() => scrollCards('left')}
           aria-label="Scroll left"
         >
           <ChevronLeft size={24} />
         </button>
         <button 
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white/80 p-2 rounded-full shadow-lg hidden sm:block text-blue-600 hover:bg-white transition-colors"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white/80 p-2 rounded-full shadow-lg text-blue-600 hover:bg-white transition-colors"
           onClick={() => scrollCards('right')}
           aria-label="Scroll right"
         >
@@ -209,10 +264,11 @@ const OccupancyPage: React.FC = () => {
         {/* Card Scroll Container: Always uses horizontal flex/scroll */}
         <div 
           ref={carouselRef}
-          className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory lg:h-[520px] lg:gap-6" 
+          className="flex overflow-hidden hide-scrollbar pb-6 md:h-[420px]"
+          style={{ gap: `${cardGap}px`, paddingLeft: `${sidePadding}px`, paddingRight: `${sidePadding}px` }}
         >
           {/* Radial Occupancy Card - FIXED WIDTH + LG ADJUSTMENT */}
-          <Card className="flex flex-col relative flex-shrink-0 w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 h-[420px] lg:h-[520px]">
+          <Card className="flex flex-col relative flex-shrink-0 w-[280px] sm:w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 md:h-[420px]">
             
             <CardTitle className="relative z-10">Occupancy by Bed</CardTitle>
             
@@ -249,7 +305,7 @@ const OccupancyPage: React.FC = () => {
                         <div className="text-4xl md:text-5xl lg:text-5xl font-extrabold text-black">
                             {occupancyPercent}%
                         </div>
-                        <p className="text-base font-bold text-black mt-2">
+                        <p className="text-base lg:text-base font-bold text-black mt-2">
                             {occupancyCount.occupied} of {occupancyCount.total} beds occupied
                         </p>
                         <div className="text-sm font-normal text-green-600 mt-1">
@@ -261,7 +317,7 @@ const OccupancyPage: React.FC = () => {
           </Card>
 
           {/* Category Donut Card - FIXED WIDTH + LG ADJUSTMENT */}
-          <Card className="flex flex-col relative flex-shrink-0 w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 h-[420px] lg:h-[520px]">
+          <Card className="flex flex-col relative flex-shrink-0 w-[280px] sm:w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 md:h-[420px]">
             <CardHeader>
               <CardTitle className="relative z-10">Occupancy by Category</CardTitle>
             </CardHeader>
@@ -297,9 +353,9 @@ const OccupancyPage: React.FC = () => {
                             className="w-3 h-3 rounded-full inline-block"
                             style={{ backgroundColor: c.color }}
                           />
-                          <div className="text-sm text-gray-700">{c.name}</div>
+                          <div className="text-sm lg:text-sm text-gray-700">{c.name}</div>
                         </div>
-                        <div className="text-sm font-semibold text-gray-800">
+                        <div className="text-sm lg:text-sm font-semibold text-gray-800">
                           {c.value}%
                         </div>
                       </li>
@@ -311,10 +367,10 @@ const OccupancyPage: React.FC = () => {
           </Card>
 
           {/* Duration Bar Chart - FIXED WIDTH + LG ADJUSTMENT */}
-          <Card className="flex flex-col relative flex-shrink-0 w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 h-[420px] lg:h-[520px]">
-            <CardHeader>
-              <CardTitle className="relative z-10">Occupancy Trend</CardTitle>
-              <div className="flex gap-2 flex-wrap justify-end">
+          <Card className="flex flex-col relative flex-shrink-0 w-[280px] sm:w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 md:h-[420px]">
+            <div className="mb-4">
+              <CardTitle className="relative z-10 mb-2">Occupancy Trend</CardTitle>
+              <div className="flex gap-2 flex-wrap">
                 <Button active={duration === "month"} onClick={() => setDuration("month")}>
                   Month
                 </Button>
@@ -325,7 +381,7 @@ const OccupancyPage: React.FC = () => {
                   Year
                 </Button>
               </div>
-            </CardHeader>
+            </div>
             <CardContent>
               <div className="w-full h-full"> 
                 <ResponsiveContainer width="100%" height="100%">
@@ -348,16 +404,16 @@ const OccupancyPage: React.FC = () => {
           </Card>
 
           {/* Forecast Card - FIXED WIDTH + LG ADJUSTMENT */}
-          <Card className="flex flex-col relative flex-shrink-0 w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 h-[420px] lg:h-[520px]">
+          <Card className="flex flex-col relative flex-shrink-0 w-[280px] sm:w-[320px] lg:w-[400px] snap-start border border-gray-200 hover:border-blue-500 md:h-[420px]">
             <CardTitle className="relative z-10 mb-4">
               Occupancy Forecast
             </CardTitle>
             <CardContent>
-                <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                    <p className="text-lg font-bold text-black">
+                <div className="h-full  text-center p-4 ">
+                    <p className="text-lg font-bold text-black mt-3 lg:mt-6">
                         Next month projected Occupancy:
                     </p>
-                    <div className="text-5xl font-extrabold text-blue-600 mt-2">90%</div>
+                    <div className=" flex flex-col items-center justify-center text-5xl font-extrabold text-blue-600 mt-3 lg:mt-10">90%</div>
                     <p className="text-base font-medium text-gray-700 mt-4">
                         Projected 48 out of 53 beds booked.
                     </p>
@@ -394,13 +450,13 @@ const OccupancyPage: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-600">
                 <tr>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Room ID</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Bed ID</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Status</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Guest Name</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Check-in Date</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Check-out Date</th>
-                  <th className="text-white text-left px-4 py-3 text-sm font-medium whitespace-nowrap">Rent</th>
+                    <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Room ID</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Bed ID</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Status</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Guest Name</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Check-in Date</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Check-out Date</th>
+                  <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Rent</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
