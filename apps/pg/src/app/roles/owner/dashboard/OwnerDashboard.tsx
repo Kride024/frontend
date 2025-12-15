@@ -34,7 +34,8 @@ export default function OwnerDashboard() {
   const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
 
   // Get user from auth context
-  const { user } = useAuth() as { user: User | null };
+  const auth = useAuth() as { user?: User | null } | null;
+  const user = auth?.user ?? null;
 
   // Prevent body scroll when modals are open
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function OwnerDashboard() {
   return (
     <main className="min-h-screen bg-[#E7EFF7] p-6 lg:p-10">
       {/* Hero Section - Owner Greeting + Cards */}
-      <First name={user?.name || "Owner"} />
+      <First />
 
       {/* Action Buttons Row */}
       <div className="mt-10">

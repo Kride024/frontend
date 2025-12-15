@@ -14,6 +14,9 @@ import {
 } from "recharts";
 import { ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react"; 
 
+// Reserve space for arrows so layout math only uses the remaining width
+const ARROW_RESERVE = 48;
+
 const hideScrollbarStyles = `
 .hide-scrollbar { -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
@@ -61,11 +64,12 @@ const CardContent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
   children: React.ReactNode;
+  className?: string;
 }
 
-const Button: React.FC<ButtonProps> = ({ children, active = false, ...props }) => (
+const Button: React.FC<ButtonProps> = ({ children, active = false, className = "", ...props }) => (
   <button
-    className={`px-3 py-1 rounded-full text-xs lg:text-xs font-medium transition-colors whitespace-nowrap ${
+    className={`${className} px-2 py-1 sm:px-3 rounded-full text-xs lg:text-xs font-medium transition-colors whitespace-nowrap ${
       active
         ? "bg-blue-600 text-white shadow-md"
         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -94,6 +98,7 @@ interface CategoryData {
   name: string;
   value: number;
   color: string;
+  [key: string]: string | number;
 }
 
 interface DurationData {
@@ -161,6 +166,7 @@ const OccupancyPage: React.FC = () => {
   const cardWidthRef = useRef<number>(0);
   const [cardGap, setCardGap] = useState<number>(16);
   const [sidePadding, setSidePadding] = useState<number>(16);
+  const [containerMaxWidth, setContainerMaxWidth] = useState<number | undefined>(undefined);
 
   const occupancyCount = { occupied: 30, total: 53 };
   const occupancyPercent = Math.round(
@@ -173,9 +179,13 @@ const OccupancyPage: React.FC = () => {
 
   const scrollCards = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
-      const measured = cardWidthRef.current || (window.innerWidth >= 1024 ? 400 : window.innerWidth >= 640 ? 320 : 280);
-      const scrollAmount = direction === 'right' ? measured + cardGap : -(measured + cardGap);
-      carouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      const measured = cardWidthRef.current || (window.innerWidth >= 1024 ? 360 : window.innerWidth >= 640 ? 300 : 260);
+      const amount = measured + cardGap;
+      const container = carouselRef.current;
+      const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+      const nextPos = direction === 'right' ? container.scrollLeft + amount : container.scrollLeft - amount;
+      const clamped = Math.max(0, Math.min(nextPos, maxScroll));
+      container.scrollTo({ left: clamped, behavior: 'smooth' });
     }
   };
 
@@ -189,15 +199,17 @@ const OccupancyPage: React.FC = () => {
 
       const wrapperWidth = wrapper.clientWidth;
       const firstChild = container.firstElementChild as HTMLElement | null;
-      const measuredCard = firstChild ? Math.round(firstChild.getBoundingClientRect().width) : (window.innerWidth >= 1024 ? 400 : window.innerWidth >= 640 ? 320 : 280);
+      const measuredCard = firstChild ? Math.round(firstChild.getBoundingClientRect().width) : (window.innerWidth >= 1024 ? 360 : window.innerWidth >= 640 ? 300 : 260);
       cardWidthRef.current = measuredCard;
 
-      // Count only fully visible cards
-      let visibleCount = Math.max(1, Math.floor(wrapperWidth / measuredCard));
+      // Use width excluding arrow reserve to decide how many full cards fit
+      const effectiveWidth = Math.max(0, wrapperWidth - ARROW_RESERVE * 2);
+
+      let visibleCount = Math.max(1, Math.floor(effectiveWidth / measuredCard));
       visibleCount = Math.min(visibleCount, container.children.length || visibleCount);
 
       const totalCardsWidth = visibleCount * measuredCard;
-      const remainingSpace = Math.max(0, wrapperWidth - totalCardsWidth);
+      const remainingSpace = Math.max(0, effectiveWidth - totalCardsWidth);
 
       // Distribute remaining space into gaps: between cards and the two side paddings
       const numberOfGaps = visibleCount + 1; // left + right + between cards
@@ -205,13 +217,16 @@ const OccupancyPage: React.FC = () => {
       let computedGap = Math.floor(remainingSpace / numberOfGaps);
       if (computedGap < minGap) computedGap = minGap;
 
-      // Recalculate side padding to center the blocks if computedGap * numberOfGaps doesn't exactly fill
       const usedGapsWidth = computedGap * (visibleCount - 1);
       const usedSides = Math.max(0, remainingSpace - usedGapsWidth);
-      const computedSide = Math.max(minGap, Math.floor(usedSides / 2));
+      const computedSide = Math.max(minGap, Math.floor(usedSides / 2)) + ARROW_RESERVE;
+
+      // Full container width to avoid showing half cards
+      const containerWidth = totalCardsWidth + usedGapsWidth + computedSide * 2;
 
       setCardGap(computedGap);
       setSidePadding(computedSide);
+      setContainerMaxWidth(containerWidth);
     };
 
     recomputeLayout();
@@ -430,11 +445,11 @@ const OccupancyPage: React.FC = () => {
       <Card className="h-auto lg:min-h-[320px]">
         <CardHeader>
           <CardTitle>Occupancy by Bed/Room</CardTitle>
-          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex gap-2 flex-nowrap items-center whitespace-nowrap justify-start px-1 sm:px-0">
             <Button active={filter === "all"} onClick={() => setFilter("all")}>
               All
             </Button>
-            <Button active={filter === "occupied"} onClick={() => setFilter("occupied")}>
+            <Button active={filter === "occupied"} onClick={() => setFilter("occupied")}> 
               Occupied
             </Button>
             <Button active={filter === "vacant"} onClick={() => setFilter("vacant")}>
@@ -447,7 +462,7 @@ const OccupancyPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto shadow ring-1 ring-black/5 sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="hidden md:table min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-600">
                 <tr>
                     <th className="text-white text-left px-4 py-3 text-sm lg:text-sm font-medium whitespace-nowrap">Room ID</th>
@@ -485,6 +500,51 @@ const OccupancyPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            {/* Mobile: render beds as compact cards (Room + status; Name & Bed; Check-in; Check-out; Rent) */}
+            <div className="md:hidden space-y-3">
+              {filteredBeds.map((bed, idx) => (
+                <div key={idx} className="bg-white rounded-lg shadow-sm p-4">
+                  {/* Line 1: Room and status */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm text-gray-600">Room <span className="font-semibold text-gray-900 ml-2">{bed.room}</span></div>
+                    <div>
+                      <span
+                        className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${
+                          bed.status === "Occupied"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : bed.status === "Vacant"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {bed.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Line 2: Guest name and Bed */}
+                  <div className="mb-2">
+                    <div className="text-sm text-gray-600">Name & Bed</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      {bed.guest} <span className="ml-3 font-medium">Bed {bed.bed}</span>
+                    </div>
+                  </div>
+
+                  {/* Line 3: Check-in */}
+                  <div className="text-sm text-gray-600 mb-1">
+                    Check-in: <span className="text-gray-800 font-medium">{bed.checkin}</span>
+                  </div>
+
+                  {/* Line 4: Check-out */}
+                  <div className="text-sm text-gray-600 mb-2">
+                    Check-out: <span className="text-gray-800 font-medium">{bed.checkout}</span>
+                  </div>
+
+                  {/* Line 5: Rent */}
+                  <div className="text-sm text-gray-800 font-semibold">Rent: ₹{bed.rent}</div>
+                </div>
+              ))}
+            </div>
             {filteredBeds.length === 0 && (
                 <div className="text-center py-6 text-gray-500">
                     No {filter} beds found.

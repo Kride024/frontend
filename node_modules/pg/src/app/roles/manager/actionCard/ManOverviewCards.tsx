@@ -188,7 +188,7 @@ setStartIndex((s) => Math.min(s, Math.max(0, cards.length - maxCount)));
               position: "absolute",
               left: `${arrowOffset}px`,
               top: "50%",
-              transform: "translateY(-50%)",
+              transform: "translate(-80%, -50%)",
               zIndex: 30,
               display: canGoLeft ? "flex" : "none",
               alignItems: "center",
@@ -214,7 +214,7 @@ setStartIndex((s) => Math.min(s, Math.max(0, cards.length - maxCount)));
               position: "absolute",
               right: `${arrowOffset}px`,
               top: "50%",
-              transform: "translateY(-50%)",
+              transform: "translate(80%, -50%)",
               zIndex: 30,
               display: canGoRight ? "flex" : "none",
               alignItems: "center",
@@ -330,7 +330,7 @@ function KpiCard({ title, icon, children, onClick }: KpiCardProps) {
       </div>
 
       {/* Hover Effect */}
-      <style jsx>{`
+      <style>{`
         article:hover {
           transform: translateY(-6px) scale(1.02);
           box-shadow: 6px 8px 12px rgba(0, 0, 0, 0.12);

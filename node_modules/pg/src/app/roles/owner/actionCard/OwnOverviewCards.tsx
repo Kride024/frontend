@@ -38,7 +38,7 @@ interface OverdueDataType {
   value: number;
 }
 
-export default function Dashboard(): JSX.Element {
+export default function Dashboard() {
   const navigate = useNavigate();
 
   const guestData: GuestDataType[] = [

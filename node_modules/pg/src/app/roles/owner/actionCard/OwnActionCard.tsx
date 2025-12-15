@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import AddGuestModal from "../addGuest/AddGuest";
+// @ts-expect-error JS module without types
 import AddManagerModal from "../../manager/addManModal/AddManagerModal";
 import AddNewPGModal from "../../manager/addPg/AddNewPG";
 import DownloadReportModal from "@pg/app/shared/components/DownloadReport";
@@ -275,7 +276,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <AddManagerModal
         open={isAddManagerOpen}
         onClose={() => setIsAddManagerOpen(false)}
-        onSubmit={(p) => {
+        onSubmit={(p: unknown) => {
           console.log(p);
           setIsAddManagerOpen(false);
         }}
@@ -283,12 +284,12 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <DownloadReportModal
         open={isDownloadOpen}
         onClose={() => setIsDownloadOpen(false)}
-        onSubmit={(p) => console.log(p)}
+        onSubmit={(p: unknown) => console.log(p)}
       />
       <SendAnnouncementModal
         open={isSendOpen}
         onClose={() => setIsSendOpen(false)}
-        onSubmit={(p) => {
+        onSubmit={(p: unknown) => {
           console.log(p);
           setIsSendOpen(false);
           setAnnouncementSuccess(true);
@@ -297,7 +298,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <AddNewPGModal
         open={isAddNewPGOpen}
         onClose={() => setIsAddNewPGOpen(false)}
-        onSubmit={(p) => {
+        onSubmit={(p: unknown) => {
           console.log(p);
           setIsAddNewPGOpen(false);
         }}
@@ -305,7 +306,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <AddGuestModal
         open={isAddGuestOpen}
         onClose={() => setIsAddGuestOpen(false)}
-        onSubmit={(p) => {
+        onSubmit={(p: unknown) => {
           console.log(p);
           setIsAddGuestOpen(false);
         }}
